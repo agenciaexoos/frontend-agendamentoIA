@@ -40,18 +40,27 @@ def quadro_horarios():
 def api_proxy(endpoint):
     url = f"{API_URL}/{endpoint}"
     
-    # Encaminhar a requisição para a API
-    if request.method == 'GET':
-        response = requests.get(url, params=request.args)
-    elif request.method == 'POST':
-        response = requests.post(url, json=request.json)
-    elif request.method == 'PUT':
-        response = requests.put(url, json=request.json)
-    elif request.method == 'DELETE':
-        response = requests.delete(url)
+    try:
+        # Encaminhar a requisição para a API
+        if request.method == 'GET':
+            response = requests.get(url, params=request.args)
+        elif request.method == 'POST':
+            response = requests.post(url, json=request.json)
+        elif request.method == 'PUT':
+            response = requests.put(url, json=request.json)
+        elif request.method == 'DELETE':
+            response = requests.delete(url)
+        
+        # Verificar se a resposta é um JSON válido
+        try:
+            json_data = response.json()
+            return jsonify(json_data), response.status_code
+        except ValueError:
+            # Se não for JSON válido, retornar o conteúdo como texto
+            return response.text, response.status_code, {'Content-Type': 'text/plain'}
     
-    # Retornar a resposta da API
-    return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Rotas de proxy diretas para a API (sem prefixo /api/)
 @app.route('/especialidades', methods=['GET', 'POST'])
@@ -67,18 +76,27 @@ def api_proxy_direct(subpath=None):
     endpoint = request.path.lstrip('/')
     url = f"{API_URL}/{endpoint}"
     
-    # Encaminhar a requisição para a API
-    if request.method == 'GET':
-        response = requests.get(url, params=request.args)
-    elif request.method == 'POST':
-        response = requests.post(url, json=request.json)
-    elif request.method == 'PUT':
-        response = requests.put(url, json=request.json)
-    elif request.method == 'DELETE':
-        response = requests.delete(url)
+    try:
+        # Encaminhar a requisição para a API
+        if request.method == 'GET':
+            response = requests.get(url, params=request.args)
+        elif request.method == 'POST':
+            response = requests.post(url, json=request.json)
+        elif request.method == 'PUT':
+            response = requests.put(url, json=request.json)
+        elif request.method == 'DELETE':
+            response = requests.delete(url)
+        
+        # Verificar se a resposta é um JSON válido
+        try:
+            json_data = response.json()
+            return jsonify(json_data), response.status_code
+        except ValueError:
+            # Se não for JSON válido, retornar o conteúdo como texto
+            return response.text, response.status_code, {'Content-Type': 'text/plain'}
     
-    # Retornar a resposta da API
-    return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
