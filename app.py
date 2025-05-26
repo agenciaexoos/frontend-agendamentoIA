@@ -35,9 +35,36 @@ def admin_agendamentos():
 def quadro_horarios():
     return render_template('quadro_horarios.html')
 
-# Rotas de proxy para a API
+# Rotas de proxy para a API com prefixo /api/
 @app.route('/api/<path:endpoint>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def api_proxy(endpoint):
+    url = f"{API_URL}/{endpoint}"
+    
+    # Encaminhar a requisição para a API
+    if request.method == 'GET':
+        response = requests.get(url, params=request.args)
+    elif request.method == 'POST':
+        response = requests.post(url, json=request.json)
+    elif request.method == 'PUT':
+        response = requests.put(url, json=request.json)
+    elif request.method == 'DELETE':
+        response = requests.delete(url)
+    
+    # Retornar a resposta da API
+    return jsonify(response.json()), response.status_code
+
+# Rotas de proxy diretas para a API (sem prefixo /api/)
+@app.route('/especialidades', methods=['GET', 'POST'])
+@app.route('/especialidades/<path:subpath>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/servicos', methods=['GET', 'POST'])
+@app.route('/servicos/<path:subpath>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/medicos', methods=['GET', 'POST'])
+@app.route('/medicos/<path:subpath>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/agendamentos', methods=['GET', 'POST'])
+@app.route('/agendamentos/<path:subpath>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/horarios_disponiveis', methods=['GET'])
+def api_proxy_direct(subpath=None):
+    endpoint = request.path.lstrip('/')
     url = f"{API_URL}/{endpoint}"
     
     # Encaminhar a requisição para a API
