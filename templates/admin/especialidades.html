@@ -1,0 +1,292 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Especialidades - Sistema de Agendamento Médico{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Especialidades</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#especialidadeModal">
+        <i class="bi bi-plus-circle me-2"></i> Nova Especialidade
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Descrição</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="especialidades-lista">
+                    <!-- Dados serão carregados via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Especialidade -->
+<div class="modal fade" id="especialidadeModal" tabindex="-1" aria-labelledby="especialidadeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="especialidadeModalLabel">Nova Especialidade</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="especialidadeForm">
+                    <input type="hidden" id="especialidade-id">
+                    <div class="mb-3">
+                        <label for="especialidade-nome" class="form-label">Nome</label>
+                        <input type="text" class="form-control" id="especialidade-nome" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="especialidade-descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="especialidade-descricao" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="salvar-especialidade">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="confirmarExclusaoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir esta especialidade?</p>
+                <p class="text-danger">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmar-exclusao">Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elementos DOM
+        const especialidadesLista = document.getElementById('especialidades-lista');
+        const especialidadeForm = document.getElementById('especialidadeForm');
+        const especialidadeId = document.getElementById('especialidade-id');
+        const especialidadeNome = document.getElementById('especialidade-nome');
+        const especialidadeDescricao = document.getElementById('especialidade-descricao');
+        const salvarEspecialidadeBtn = document.getElementById('salvar-especialidade');
+        const confirmarExclusaoBtn = document.getElementById('confirmar-exclusao');
+        const especialidadeModal = new bootstrap.Modal(document.getElementById('especialidadeModal'));
+        const confirmarExclusaoModal = new bootstrap.Modal(document.getElementById('confirmarExclusaoModal'));
+        
+        let especialidadeParaExcluir = null;
+        
+        // Carregar especialidades
+        function carregarEspecialidades() {
+            fetch('/especialidades')
+                .then(response => response.json())
+                .then(data => {
+                    especialidadesLista.innerHTML = '';
+                    
+                    data.forEach(especialidade => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${especialidade.id}</td>
+                            <td>${especialidade.nome}</td>
+                            <td>${especialidade.descricao || '-'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info editar-especialidade" data-id="${especialidade.id}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger excluir-especialidade" data-id="${especialidade.id}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        especialidadesLista.appendChild(tr);
+                    });
+                    
+                    // Adicionar eventos aos botões
+                    document.querySelectorAll('.editar-especialidade').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const id = this.getAttribute('data-id');
+                            editarEspecialidade(id);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.excluir-especialidade').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const id = this.getAttribute('data-id');
+                            confirmarExclusao(id);
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar especialidades:', error);
+                    mostrarAlerta('Erro ao carregar especialidades', 'danger');
+                });
+        }
+        
+        // Salvar especialidade
+        salvarEspecialidadeBtn.addEventListener('click', function() {
+            if (!especialidadeForm.checkValidity()) {
+                especialidadeForm.reportValidity();
+                return;
+            }
+            
+            const id = especialidadeId.value;
+            const especialidade = {
+                nome: especialidadeNome.value,
+                descricao: especialidadeDescricao.value
+            };
+            
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/especialidades/${id}` : '/especialidades';
+            
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(especialidade)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        // Tratamento melhorado para diferentes formatos de erro
+                        if (typeof err.detail === 'string') {
+                            throw new Error(err.detail);
+                        } else if (Array.isArray(err.detail)) {
+                            throw new Error(err.detail.join(', '));
+                        } else if (typeof err.detail === 'object' && err.detail !== null) {
+                            throw new Error(JSON.stringify(err.detail));
+                        } else {
+                            throw new Error('Erro ao salvar especialidade');
+                        }
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                mostrarAlerta(`Especialidade ${id ? 'atualizada' : 'criada'} com sucesso`, 'success');
+                especialidadeModal.hide();
+                carregarEspecialidades();
+            })
+            .catch(error => {
+                console.error('Erro ao salvar especialidade:', error);
+                // Garantir que a mensagem de erro seja sempre uma string legível
+                const mensagemErro = error.message && error.message !== '[object Object]' 
+                    ? error.message 
+                    : 'Erro ao salvar especialidade. Verifique os dados e tente novamente.';
+                mostrarAlerta(mensagemErro, 'danger');
+            });
+        });
+        
+        // Editar especialidade
+        function editarEspecialidade(id) {
+            fetch(`/especialidades/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    especialidadeId.value = data.id;
+                    especialidadeNome.value = data.nome;
+                    especialidadeDescricao.value = data.descricao || '';
+                    
+                    document.getElementById('especialidadeModalLabel').textContent = 'Editar Especialidade';
+                    especialidadeModal.show();
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar especialidade:', error);
+                    mostrarAlerta('Erro ao carregar especialidade', 'danger');
+                });
+        }
+        
+        // Confirmar exclusão
+        function confirmarExclusao(id) {
+            especialidadeParaExcluir = id;
+            confirmarExclusaoModal.show();
+        }
+        
+        // Excluir especialidade
+        confirmarExclusaoBtn.addEventListener('click', function() {
+            if (!especialidadeParaExcluir) return;
+            
+            fetch(`/especialidades/${especialidadeParaExcluir}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        // Tratamento melhorado para diferentes formatos de erro
+                        if (typeof err.detail === 'string') {
+                            throw new Error(err.detail);
+                        } else if (Array.isArray(err.detail)) {
+                            throw new Error(err.detail.join(', '));
+                        } else if (typeof err.detail === 'object' && err.detail !== null) {
+                            throw new Error(JSON.stringify(err.detail));
+                        } else {
+                            throw new Error('Erro ao excluir especialidade');
+                        }
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                mostrarAlerta('Especialidade excluída com sucesso', 'success');
+                confirmarExclusaoModal.hide();
+                carregarEspecialidades();
+            })
+            .catch(error => {
+                console.error('Erro ao excluir especialidade:', error);
+                // Garantir que a mensagem de erro seja sempre uma string legível
+                const mensagemErro = error.message && error.message !== '[object Object]' 
+                    ? error.message 
+                    : 'Erro ao excluir especialidade. Verifique se não há serviços vinculados.';
+                mostrarAlerta(mensagemErro, 'danger');
+                confirmarExclusaoModal.hide();
+            });
+        });
+        
+        // Resetar formulário ao abrir modal
+        document.getElementById('especialidadeModal').addEventListener('show.bs.modal', function() {
+            if (!especialidadeId.value) {
+                document.getElementById('especialidadeModalLabel').textContent = 'Nova Especialidade';
+                especialidadeForm.reset();
+            }
+        });
+        
+        // Mostrar alerta
+        function mostrarAlerta(mensagem, tipo) {
+            const alertPlaceholder = document.createElement('div');
+            alertPlaceholder.className = `alert alert-${tipo} alert-dismissible fade show`;
+            alertPlaceholder.innerHTML = `
+                ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            document.querySelector('.container').insertBefore(alertPlaceholder, document.querySelector('.container').firstChild);
+            
+            // Auto-fechar após 5 segundos
+            setTimeout(() => {
+                const alert = bootstrap.Alert.getOrCreateInstance(alertPlaceholder);
+                alert.close();
+            }, 5000);
+        }
+        
+        // Carregar especialidades ao iniciar
+        carregarEspecialidades();
+    });
+</script>
+{% endblock %}

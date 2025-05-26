@@ -1,0 +1,674 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Agendamentos - Sistema de Agendamento Médico{% endblock %}
+
+{% block page_title %}Agendamentos{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filtros</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="filtro-medico" class="form-label">Médico</label>
+                <select class="form-select" id="filtro-medico">
+                    <option value="">Todos os médicos</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="filtro-data-inicio" class="form-label">Data Início</label>
+                <input type="date" class="form-control" id="filtro-data-inicio">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="filtro-data-fim" class="form-label">Data Fim</label>
+                <input type="date" class="form-control" id="filtro-data-fim">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="filtro-status" class="form-label">Status</label>
+                <select class="form-select" id="filtro-status">
+                    <option value="">Todos</option>
+                    <option value="reservado">Reservados</option>
+                    <option value="disponivel">Disponíveis</option>
+                </select>
+            </div>
+            <div class="col-md-8 d-flex align-items-end">
+                <button class="btn btn-primary me-2" id="btn-filtrar">
+                    <i class="bi bi-filter"></i> Filtrar
+                </button>
+                <button class="btn btn-secondary" id="btn-limpar-filtros">
+                    <i class="bi bi-x-circle"></i> Limpar Filtros
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Agendamentos -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Médico</th>
+                        <th>Status</th>
+                        <th>Cliente</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="agendamentos-lista">
+                    <tr>
+                        <td colspan="7" class="text-center">Carregando...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+                <span id="total-registros">0</span> registros encontrados
+            </div>
+            <nav aria-label="Paginação de agendamentos">
+                <ul class="pagination" id="paginacao">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Anterior</a>
+                    </li>
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#">Próximo</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalhes do Agendamento -->
+<div class="modal fade" id="modalDetalhesAgendamento" tabindex="-1" aria-labelledby="modalDetalhesAgendamentoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetalhesAgendamentoLabel">Detalhes do Agendamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Data</h6>
+                        <p id="detalhe-agendamento-data">-</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Hora</h6>
+                        <p id="detalhe-agendamento-hora">-</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Médico</h6>
+                        <p id="detalhe-agendamento-medico">-</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Status</h6>
+                        <p id="detalhe-agendamento-status">-</p>
+                    </div>
+                </div>
+                <div id="detalhes-cliente" style="display: none;">
+                    <hr>
+                    <h6>Detalhes do Cliente</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Nome</h6>
+                            <p id="detalhe-agendamento-cliente">-</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Telefone</h6>
+                            <p id="detalhe-agendamento-telefone">-</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>Observações</h6>
+                            <p id="detalhe-agendamento-observacoes">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-danger" id="btn-cancelar-agendamento" style="display: none;">Cancelar Agendamento</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Agendamento -->
+<div class="modal fade" id="modalCriarAgendamento" tabindex="-1" aria-labelledby="modalCriarAgendamentoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCriarAgendamentoLabel">Criar Agendamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCriarAgendamento">
+                    <input type="hidden" id="agendamento-id">
+                    <div class="mb-3">
+                        <label for="agendamento-medico" class="form-label">Médico</label>
+                        <select class="form-select" id="agendamento-medico" required>
+                            <option value="">Selecione um médico</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agendamento-data" class="form-label">Data</label>
+                        <input type="date" class="form-control" id="agendamento-data" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agendamento-hora" class="form-label">Hora</label>
+                        <select class="form-select" id="agendamento-hora" required>
+                            <option value="">Selecione um horário</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agendamento-cliente" class="form-label">Nome do Cliente</label>
+                        <input type="text" class="form-control" id="agendamento-cliente" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agendamento-telefone" class="form-label">Telefone</label>
+                        <input type="text" class="form-control" id="agendamento-telefone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agendamento-observacoes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="agendamento-observacoes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-salvar-agendamento">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarAgendamento">
+    <i class="bi bi-plus-circle"></i> Novo Agendamento
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variáveis globais
+    let agendamentos = [];
+    let medicos = [];
+    let paginaAtual = 1;
+    let totalPaginas = 1;
+    let itensPorPagina = 10;
+    let agendamentosFiltrados = [];
+    let modalDetalhesAgendamento;
+    let modalCriarAgendamento;
+    let agendamentoAtual = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar modais
+        modalDetalhesAgendamento = new bootstrap.Modal(document.getElementById('modalDetalhesAgendamento'));
+        modalCriarAgendamento = new bootstrap.Modal(document.getElementById('modalCriarAgendamento'));
+        
+        // Definir data atual como padrão para os filtros
+        const hoje = new Date();
+        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+        
+        document.getElementById('filtro-data-inicio').valueAsDate = inicioMes;
+        document.getElementById('filtro-data-fim').valueAsDate = fimMes;
+        
+        // Carregar dados
+        loadMedicos().then(() => {
+            loadAgendamentos();
+        });
+        
+        // Event listeners
+        document.getElementById('btn-filtrar').addEventListener('click', filtrarAgendamentos);
+        document.getElementById('btn-limpar-filtros').addEventListener('click', limparFiltros);
+        document.getElementById('btn-cancelar-agendamento').addEventListener('click', cancelarAgendamento);
+        document.getElementById('btn-salvar-agendamento').addEventListener('click', salvarAgendamento);
+        document.getElementById('agendamento-medico').addEventListener('change', carregarHorariosDisponiveis);
+        document.getElementById('agendamento-data').addEventListener('change', carregarHorariosDisponiveis);
+        
+        // Reset do formulário quando o modal for fechado
+        document.getElementById('modalCriarAgendamento').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('formCriarAgendamento').reset();
+            document.getElementById('agendamento-id').value = '';
+            document.getElementById('agendamento-hora').innerHTML = '<option value="">Selecione um horário</option>';
+        });
+    });
+    
+    // Função para carregar médicos
+    async function loadMedicos() {
+        try {
+            const response = await axios.get('/medicos');
+            medicos = response.data;
+            
+            // Preencher select de médicos para filtro
+            const selectFiltro = document.getElementById('filtro-medico');
+            selectFiltro.innerHTML = '<option value="">Todos os médicos</option>';
+            
+            // Preencher select de médicos para criar agendamento
+            const selectAgendamento = document.getElementById('agendamento-medico');
+            selectAgendamento.innerHTML = '<option value="">Selecione um médico</option>';
+            
+            medicos.forEach(medico => {
+                // Para filtro
+                const optionFiltro = document.createElement('option');
+                optionFiltro.value = medico.id;
+                optionFiltro.textContent = medico.nome;
+                selectFiltro.appendChild(optionFiltro);
+                
+                // Para criar agendamento
+                const optionAgendamento = document.createElement('option');
+                optionAgendamento.value = medico.id;
+                optionAgendamento.textContent = medico.nome;
+                selectAgendamento.appendChild(optionAgendamento);
+            });
+        } catch (error) {
+            console.error('Erro ao carregar médicos:', error);
+            showToast('Erro ao carregar médicos', 'error');
+        }
+    }
+    
+    // Função para carregar agendamentos
+    async function loadAgendamentos() {
+        try {
+            const response = await axios.get('/horarios_disponiveis');
+            agendamentos = response.data;
+            
+            // Aplicar filtros iniciais
+            filtrarAgendamentos();
+        } catch (error) {
+            console.error('Erro ao carregar agendamentos:', error);
+            showToast('Erro ao carregar agendamentos', 'error');
+            document.getElementById('agendamentos-lista').innerHTML = 
+                '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar dados</td></tr>';
+        }
+    }
+    
+    // Função para filtrar agendamentos
+    function filtrarAgendamentos() {
+        const medicoId = document.getElementById('filtro-medico').value;
+        const dataInicio = document.getElementById('filtro-data-inicio').value;
+        const dataFim = document.getElementById('filtro-data-fim').value;
+        const status = document.getElementById('filtro-status').value;
+        
+        agendamentosFiltrados = agendamentos.filter(agendamento => {
+            // Filtro por médico
+            if (medicoId && agendamento.medico_id != medicoId) {
+                return false;
+            }
+            
+            // Filtro por data
+            if (dataInicio && agendamento.data < dataInicio) {
+                return false;
+            }
+            
+            if (dataFim && agendamento.data > dataFim) {
+                return false;
+            }
+            
+            // Filtro por status
+            if (status === 'reservado' && !agendamento.reservado) {
+                return false;
+            }
+            
+            if (status === 'disponivel' && agendamento.reservado) {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Ordenar por data e hora
+        agendamentosFiltrados.sort((a, b) => {
+            if (a.data !== b.data) {
+                return a.data.localeCompare(b.data);
+            }
+            return a.hora.localeCompare(b.hora);
+        });
+        
+        // Atualizar total de registros
+        document.getElementById('total-registros').textContent = agendamentosFiltrados.length;
+        
+        // Calcular total de páginas
+        totalPaginas = Math.ceil(agendamentosFiltrados.length / itensPorPagina);
+        
+        // Resetar para primeira página
+        paginaAtual = 1;
+        
+        // Renderizar agendamentos e paginação
+        renderAgendamentos();
+        renderPaginacao();
+    }
+    
+    // Função para limpar filtros
+    function limparFiltros() {
+        document.getElementById('filtro-medico').value = '';
+        
+        const hoje = new Date();
+        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+        
+        document.getElementById('filtro-data-inicio').valueAsDate = inicioMes;
+        document.getElementById('filtro-data-fim').valueAsDate = fimMes;
+        document.getElementById('filtro-status').value = '';
+        
+        filtrarAgendamentos();
+    }
+    
+    // Função para renderizar agendamentos na tabela
+    function renderAgendamentos() {
+        const tbody = document.getElementById('agendamentos-lista');
+        
+        if (agendamentosFiltrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhum agendamento encontrado</td></tr>';
+            return;
+        }
+        
+        // Calcular índices para paginação
+        const inicio = (paginaAtual - 1) * itensPorPagina;
+        const fim = Math.min(inicio + itensPorPagina, agendamentosFiltrados.length);
+        
+        // Obter agendamentos da página atual
+        const agendamentosPagina = agendamentosFiltrados.slice(inicio, fim);
+        
+        tbody.innerHTML = agendamentosPagina.map(agendamento => {
+            // Buscar nome do médico
+            const medico = medicos.find(m => m.id === agendamento.medico_id);
+            const medicoNome = medico ? medico.nome : 'Não encontrado';
+            
+            // Status
+            const statusClass = agendamento.reservado ? 'bg-success' : 'bg-secondary';
+            const statusText = agendamento.reservado ? 'Reservado' : 'Disponível';
+            
+            // Cliente
+            const clienteNome = agendamento.nome_cliente || '-';
+            
+            return `
+                <tr>
+                    <td>${agendamento.id}</td>
+                    <td>${formatDate(agendamento.data)}</td>
+                    <td>${agendamento.hora}</td>
+                    <td>${medicoNome}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>${clienteNome}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="verDetalhesAgendamento(${agendamento.id})">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        ${agendamento.reservado ? `
+                            <button class="btn btn-sm btn-danger" onclick="confirmarCancelamento(${agendamento.id})">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        ` : `
+                            <button class="btn btn-sm btn-success" onclick="criarAgendamento(${agendamento.id})">
+                                <i class="bi bi-calendar-plus"></i>
+                            </button>
+                        `}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    // Função para renderizar paginação
+    function renderPaginacao() {
+        const paginacao = document.getElementById('paginacao');
+        
+        if (totalPaginas <= 1) {
+            paginacao.innerHTML = '';
+            return;
+        }
+        
+        let html = `
+            <li class="page-item ${paginaAtual === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="mudarPagina(${paginaAtual - 1}); return false;">Anterior</a>
+            </li>
+        `;
+        
+        // Mostrar no máximo 5 páginas
+        const maxPaginas = 5;
+        let inicio = Math.max(1, paginaAtual - Math.floor(maxPaginas / 2));
+        let fim = Math.min(totalPaginas, inicio + maxPaginas - 1);
+        
+        // Ajustar início se necessário
+        if (fim - inicio + 1 < maxPaginas) {
+            inicio = Math.max(1, fim - maxPaginas + 1);
+        }
+        
+        for (let i = inicio; i <= fim; i++) {
+            html += `
+                <li class="page-item ${i === paginaAtual ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="mudarPagina(${i}); return false;">${i}</a>
+                </li>
+            `;
+        }
+        
+        html += `
+            <li class="page-item ${paginaAtual === totalPaginas ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="mudarPagina(${paginaAtual + 1}); return false;">Próximo</a>
+            </li>
+        `;
+        
+        paginacao.innerHTML = html;
+    }
+    
+    // Função para mudar de página
+    function mudarPagina(pagina) {
+        if (pagina < 1 || pagina > totalPaginas) {
+            return;
+        }
+        
+        paginaAtual = pagina;
+        renderAgendamentos();
+        renderPaginacao();
+    }
+    
+    // Função para ver detalhes do agendamento
+    function verDetalhesAgendamento(id) {
+        const agendamento = agendamentos.find(a => a.id === id);
+        if (!agendamento) return;
+        
+        agendamentoAtual = agendamento;
+        
+        // Buscar nome do médico
+        const medico = medicos.find(m => m.id === agendamento.medico_id);
+        const medicoNome = medico ? medico.nome : 'Não encontrado';
+        
+        // Status
+        const statusClass = agendamento.reservado ? 'text-success' : 'text-secondary';
+        const statusText = agendamento.reservado ? 'Reservado' : 'Disponível';
+        
+        // Preencher detalhes
+        document.getElementById('detalhe-agendamento-data').textContent = formatDate(agendamento.data);
+        document.getElementById('detalhe-agendamento-hora').textContent = agendamento.hora;
+        document.getElementById('detalhe-agendamento-medico').textContent = medicoNome;
+        document.getElementById('detalhe-agendamento-status').innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+        
+        // Detalhes do cliente (apenas se estiver reservado)
+        const detalhesCliente = document.getElementById('detalhes-cliente');
+        const btnCancelar = document.getElementById('btn-cancelar-agendamento');
+        
+        if (agendamento.reservado) {
+            detalhesCliente.style.display = 'block';
+            btnCancelar.style.display = 'block';
+            
+            document.getElementById('detalhe-agendamento-cliente').textContent = agendamento.nome_cliente || 'Não informado';
+            document.getElementById('detalhe-agendamento-telefone').textContent = agendamento.telefone_cliente || 'Não informado';
+            document.getElementById('detalhe-agendamento-observacoes').textContent = agendamento.observacoes || 'Nenhuma observação';
+        } else {
+            detalhesCliente.style.display = 'none';
+            btnCancelar.style.display = 'none';
+        }
+        
+        // Atualizar título do modal
+        document.getElementById('modalDetalhesAgendamentoLabel').textContent = 
+            `Detalhes do Agendamento: ${formatDate(agendamento.data)} às ${agendamento.hora}`;
+        
+        // Mostrar modal
+        modalDetalhesAgendamento.show();
+    }
+    
+    // Função para confirmar cancelamento
+    function confirmarCancelamento(id) {
+        const agendamento = agendamentos.find(a => a.id === id);
+        if (!agendamento) return;
+        
+        confirmDelete(`Tem certeza que deseja cancelar o agendamento de ${formatDate(agendamento.data)} às ${agendamento.hora}?`, () => {
+            cancelarAgendamentoById(id);
+        });
+    }
+    
+    // Função para cancelar agendamento pelo ID
+    async function cancelarAgendamentoById(id) {
+        try {
+            await axios.post('/cancelar', { id });
+            showToast('Agendamento cancelado com sucesso');
+            
+            // Recarregar agendamentos
+            loadAgendamentos();
+        } catch (error) {
+            console.error('Erro ao cancelar agendamento:', error);
+            showToast(`Erro ao cancelar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
+        }
+    }
+    
+    // Função para cancelar agendamento atual
+    async function cancelarAgendamento() {
+        if (!agendamentoAtual) return;
+        
+        try {
+            await axios.post('/cancelar', { id: agendamentoAtual.id });
+            showToast('Agendamento cancelado com sucesso');
+            
+            // Fechar modal
+            modalDetalhesAgendamento.hide();
+            
+            // Recarregar agendamentos
+            loadAgendamentos();
+        } catch (error) {
+            console.error('Erro ao cancelar agendamento:', error);
+            showToast(`Erro ao cancelar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
+        }
+    }
+    
+    // Função para abrir modal de criar agendamento
+    function criarAgendamento(id) {
+        const agendamento = agendamentos.find(a => a.id === id);
+        if (!agendamento || agendamento.reservado) return;
+        
+        // Preencher dados do agendamento
+        document.getElementById('agendamento-id').value = agendamento.id;
+        document.getElementById('agendamento-medico').value = agendamento.medico_id;
+        document.getElementById('agendamento-data').value = agendamento.data;
+        
+        // Carregar horários disponíveis
+        carregarHorariosDisponiveis().then(() => {
+            // Selecionar o horário do agendamento
+            document.getElementById('agendamento-hora').value = agendamento.hora;
+        });
+        
+        // Mostrar modal
+        modalCriarAgendamento.show();
+    }
+    
+    // Função para carregar horários disponíveis
+    async function carregarHorariosDisponiveis() {
+        const medicoId = document.getElementById('agendamento-medico').value;
+        const data = document.getElementById('agendamento-data').value;
+        const selectHora = document.getElementById('agendamento-hora');
+        
+        if (!medicoId || !data) {
+            selectHora.innerHTML = '<option value="">Selecione um horário</option>';
+            return;
+        }
+        
+        try {
+            const response = await axios.get(`/horarios_disponiveis/medico/${medicoId}`);
+            const horarios = response.data.filter(h => h.data === data && !h.reservado);
+            
+            if (horarios.length === 0) {
+                selectHora.innerHTML = '<option value="">Nenhum horário disponível</option>';
+                return;
+            }
+            
+            selectHora.innerHTML = '<option value="">Selecione um horário</option>';
+            
+            horarios.forEach(horario => {
+                const option = document.createElement('option');
+                option.value = horario.hora;
+                option.textContent = horario.hora;
+                option.dataset.id = horario.id;
+                selectHora.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Erro ao carregar horários disponíveis:', error);
+            selectHora.innerHTML = '<option value="">Erro ao carregar horários</option>';
+        }
+    }
+    
+    // Função para salvar agendamento
+    async function salvarAgendamento() {
+        const id = document.getElementById('agendamento-id').value;
+        const medicoId = document.getElementById('agendamento-medico').value;
+        const data = document.getElementById('agendamento-data').value;
+        const horaSelect = document.getElementById('agendamento-hora');
+        const hora = horaSelect.value;
+        const nome = document.getElementById('agendamento-cliente').value;
+        const telefone = document.getElementById('agendamento-telefone').value;
+        const observacoes = document.getElementById('agendamento-observacoes').value;
+        
+        if (!medicoId || !data || !hora || !nome || !telefone) {
+            showToast('Preencha todos os campos obrigatórios', 'error');
+            return;
+        }
+        
+        try {
+            // Se temos um ID específico, usamos ele
+            let agendamentoId = id;
+            
+            // Se não temos um ID específico, buscamos pelo horário selecionado
+            if (!agendamentoId) {
+                const selectedOption = horaSelect.options[horaSelect.selectedIndex];
+                agendamentoId = selectedOption.dataset.id;
+            }
+            
+            if (!agendamentoId) {
+                showToast('Erro ao identificar o horário selecionado', 'error');
+                return;
+            }
+            
+            await axios.post('/reservar', {
+                id: agendamentoId,
+                nome_cliente: nome,
+                telefone_cliente: telefone,
+                observacoes
+            });
+            
+            showToast('Agendamento criado com sucesso');
+            
+            // Fechar modal e recarregar dados
+            modalCriarAgendamento.hide();
+            loadAgendamentos();
+        } catch (error) {
+            console.error('Erro ao criar agendamento:', error);
+            showToast(`Erro ao criar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
+        }
+    }
+</script>
+{% endblock %}

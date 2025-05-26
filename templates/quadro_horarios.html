@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadro de Horários - Consultório</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        header h1 {
+            text-align: center;
+            font-weight: 300;
+            font-size: 2.5rem;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .date-filter {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        select, button {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .day-card {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .day-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .day-header {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+        
+        .day-body {
+            padding: 15px;
+        }
+        
+        .time-slot {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease;
+        }
+        
+        .time-slot:last-child {
+            border-bottom: none;
+        }
+        
+        .time-slot:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .time {
+            font-weight: bold;
+        }
+        
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .status.available {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .status.reserved {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        
+        .legend-color.available {
+            background-color: var(--secondary-color);
+        }
+        
+        .legend-color.reserved {
+            background-color: var(--danger-color);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.5rem;
+            color: var(--dark-color);
+        }
+        
+        .error {
+            background-color: #fff3f3;
+            color: var(--danger-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .date-filter {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .calendar {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Quadro de Horários</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="date-filter">
+                <select id="filterWeek">
+                    <option value="all">Todas as semanas</option>
+                    <option value="current" selected>Semana atual</option>
+                    <option value="next">Próxima semana</option>
+                </select>
+                <button id="refreshBtn">Atualizar</button>
+            </div>
+            <div class="view-toggle">
+                <button id="toggleView">Alternar visualização</button>
+            </div>
+        </div>
+        
+        <div id="errorContainer" class="error" style="display: none;"></div>
+        
+        <div id="calendarContainer" class="calendar">
+            <div class="loading">Carregando horários...</div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color available"></div>
+                <span>Disponível</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color reserved"></div>
+                <span>Reservado</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos DOM
+            const calendarContainer = document.getElementById('calendarContainer');
+            const filterWeek = document.getElementById('filterWeek');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const toggleViewBtn = document.getElementById('toggleView');
+            const errorContainer = document.getElementById('errorContainer');
+            
+            // Estado da aplicação
+            let currentView = 'day'; // 'day' ou 'list'
+            let allHorarios = [];
+            
+            // Funções auxiliares
+            function formatDate(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+            
+            function getDayName(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('pt-BR', { weekday: 'long' });
+            }
+            
+            function getWeekNumber(date) {
+                const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+                const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+                return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+            }
+            
+            function isCurrentWeek(dateStr) {
+                const today = new Date();
+                const date = new Date(dateStr);
+                return getWeekNumber(today) === getWeekNumber(date);
+            }
+            
+            function isNextWeek(dateStr) {
+                const today = new Date();
+                const nextWeek = new Date(today);
+                nextWeek.setDate(today.getDate() + 7);
+                const date = new Date(dateStr);
+                return getWeekNumber(nextWeek) === getWeekNumber(date);
+            }
+            
+            function groupByDate(horarios) {
+                const grouped = {};
+                
+                horarios.forEach(horario => {
+                    if (!grouped[horario.data]) {
+                        grouped[horario.data] = [];
+                    }
+                    grouped[horario.data].push(horario);
+                });
+                
+                // Ordenar horários dentro de cada dia
+                Object.keys(grouped).forEach(date => {
+                    grouped[date].sort((a, b) => a.hora.localeCompare(b.hora));
+                });
+                
+                return grouped;
+            }
+            
+            function filterHorarios() {
+                const filter = filterWeek.value;
+                let filtered = [...allHorarios];
+                
+                if (filter === 'current') {
+                    filtered = filtered.filter(h => isCurrentWeek(h.data));
+                } else if (filter === 'next') {
+                    filtered = filtered.filter(h => isNextWeek(h.data));
+                }
+                
+                return filtered;
+            }
+            
+            function renderDayView(horarios) {
+                const grouped = groupByDate(horarios);
+                calendarContainer.innerHTML = '';
+                
+                if (Object.keys(grouped).length === 0) {
+                    calendarContainer.innerHTML = '<div class="loading">Nenhum horário encontrado para o período selecionado.</div>';
+                    return;
+                }
+                
+                // Ordenar datas
+                const sortedDates = Object.keys(grouped).sort();
+                
+                sortedDates.forEach(date => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'day-card';
+                    
+                    const dayHeader = document.createElement('div');
+                    dayHeader.className = 'day-header';
+                    dayHeader.textContent = formatDate(date);
+                    
+                    const dayBody = document.createElement('div');
+                    dayBody.className = 'day-body';
+                    
+                    grouped[date].forEach(horario => {
+                        const timeSlot = document.createElement('div');
+                        timeSlot.className = 'time-slot';
+                        
+                        const time = document.createElement('div');
+                        time.className = 'time';
+                        time.textContent = horario.hora;
+                        
+                        const status = document.createElement('div');
+                        status.className = `status ${horario.reservado ? 'reserved' : 'available'}`;
+                        status.textContent = horario.reservado ? 'Reservado' : 'Disponível';
+                        
+                        timeSlot.appendChild(time);
+                        timeSlot.appendChild(status);
+                        dayBody.appendChild(timeSlot);
+                    });
+                    
+                    dayCard.appendChild(dayHeader);
+                    dayCard.appendChild(dayBody);
+                    calendarContainer.appendChild(dayCard);
+                });
+            }
+            
+            function renderListView(horarios) {
+                calendarContainer.innerHTML = '';
+                
+                if (horarios.length === 0) {
+                    calendarContainer.innerHTML = '<div class="loading">Nenhum horário encontrado para o período selecionado.</div>';
+                    return;
+                }
+                
+                const table = document.createElement('table');
+                table.style.width = '100%';
+                table.style.borderCollapse = 'collapse';
+                table.style.marginBottom = '20px';
+                table.style.backgroundColor = 'white';
+                table.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                table.style.borderRadius = '8px';
+                table.style.overflow = 'hidden';
+                
+                // Cabeçalho da tabela
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                headerRow.style.backgroundColor = 'var(--dark-color)';
+                headerRow.style.color = 'white';
+                
+                ['Data', 'Dia', 'Horário', 'Status'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    th.style.padding = '15px';
+                    th.style.textAlign = 'left';
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                // Corpo da tabela
+                const tbody = document.createElement('tbody');
+                
+                horarios.forEach((horario, index) => {
+                    const row = document.createElement('tr');
+                    row.style.borderBottom = '1px solid #eee';
+                    
+                    if (index % 2 === 0) {
+                        row.style.backgroundColor = '#f9f9f9';
+                    }
+                    
+                    // Data
+                    const dateCell = document.createElement('td');
+                    dateCell.textContent = new Date(horario.data).toLocaleDateString('pt-BR');
+                    dateCell.style.padding = '12px 15px';
+                    
+                    // Dia da semana
+                    const dayCell = document.createElement('td');
+                    dayCell.textContent = getDayName(horario.data);
+                    dayCell.style.padding = '12px 15px';
+                    
+                    // Horário
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = horario.hora;
+                    timeCell.style.padding = '12px 15px';
+                    
+                    // Status
+                    const statusCell = document.createElement('td');
+                    const statusSpan = document.createElement('span');
+                    statusSpan.className = `status ${horario.reservado ? 'reserved' : 'available'}`;
+                    statusSpan.textContent = horario.reservado ? 'Reservado' : 'Disponível';
+                    statusSpan.style.display = 'inline-block';
+                    statusCell.appendChild(statusSpan);
+                    statusCell.style.padding = '12px 15px';
+                    
+                    row.appendChild(dateCell);
+                    row.appendChild(dayCell);
+                    row.appendChild(timeCell);
+                    row.appendChild(statusCell);
+                    
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(tbody);
+                calendarContainer.appendChild(table);
+            }
+            
+            function renderCalendar() {
+                const filtered = filterHorarios();
+                
+                if (currentView === 'day') {
+                    renderDayView(filtered);
+                } else {
+                    renderListView(filtered);
+                }
+            }
+            
+            // Carregar horários da API
+            async function loadHorarios() {
+                try {
+                    errorContainer.style.display = 'none';
+                    calendarContainer.innerHTML = '<div class="loading">Carregando horários...</div>';
+                    
+                    const response = await fetch('/horarios_disponiveis');
+                    
+                    if (!response.ok) {
+                        throw new Error(`Erro ao carregar horários: ${response.status}`);
+                    }
+                    
+                    allHorarios = await response.json();
+                    renderCalendar();
+                } catch (error) {
+                    errorContainer.textContent = `Erro ao carregar horários: ${error.message}`;
+                    errorContainer.style.display = 'block';
+                    calendarContainer.innerHTML = '';
+                }
+            }
+            
+            // Event listeners
+            refreshBtn.addEventListener('click', loadHorarios);
+            
+            filterWeek.addEventListener('change', () => {
+                renderCalendar();
+            });
+            
+            toggleViewBtn.addEventListener('click', () => {
+                currentView = currentView === 'day' ? 'list' : 'day';
+                toggleViewBtn.textContent = currentView === 'day' ? 'Ver como lista' : 'Ver como calendário';
+                renderCalendar();
+            });
+            
+            // Inicialização
+            loadHorarios();
+        });
+    </script>
+</body>
+</html>

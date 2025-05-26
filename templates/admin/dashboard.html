@@ -1,0 +1,204 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Dashboard - Sistema de Agendamento Médico{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h2 class="display-4" id="total-especialidades">-</h2>
+                <p class="text-muted">Total de especialidades cadastradas</p>
+                <a href="/admin/especialidades" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-gear-fill"></i> Gerenciar
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h2 class="display-4" id="total-servicos">-</h2>
+                <p class="text-muted">Total de serviços cadastrados</p>
+                <a href="/admin/servicos" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-gear-fill"></i> Gerenciar
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h2 class="display-4" id="total-medicos">-</h2>
+                <p class="text-muted">Total de médicos cadastrados</p>
+                <a href="/admin/medicos" class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-gear-fill"></i> Gerenciar
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h2 class="display-4" id="total-agendamentos">-</h2>
+                <p class="text-muted">Agendamentos confirmados</p>
+                <a href="/admin/agendamentos" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-gear-fill"></i> Gerenciar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Próximos Agendamentos</h5>
+                <a href="/admin/agendamentos" class="btn btn-sm btn-outline-primary">Ver Todos</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Hora</th>
+                                <th>Médico</th>
+                                <th>Paciente</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proximos-agendamentos">
+                            <tr>
+                                <td colspan="4" class="text-center">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Médicos por Especialidade</h5>
+                <a href="/admin/medicos" class="btn btn-sm btn-outline-primary">Ver Detalhes</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Especialidade</th>
+                                <th>Médicos</th>
+                                <th>Serviços</th>
+                            </tr>
+                        </thead>
+                        <tbody id="medicos-por-especialidade">
+                            <tr>
+                                <td colspan="3" class="text-center">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        carregarDadosDashboard();
+    });
+    
+    async function carregarDadosDashboard() {
+        try {
+            // Usar o novo endpoint de estatísticas do dashboard
+            const response = await axios.get('/dashboard/estatisticas');
+            const data = response.data;
+            
+            // Atualizar contadores
+            document.getElementById('total-especialidades').textContent = data.total_especialidades || 0;
+            document.getElementById('total-servicos').textContent = data.total_servicos || 0;
+            document.getElementById('total-medicos').textContent = data.total_medicos || 0;
+            document.getElementById('total-agendamentos').textContent = data.total_agendamentos || 0;
+            
+            // Atualizar próximos agendamentos
+            const proximosAgendamentos = document.getElementById('proximos-agendamentos');
+            if (data.proximos_agendamentos && data.proximos_agendamentos.length > 0) {
+                proximosAgendamentos.innerHTML = data.proximos_agendamentos.map(agendamento => {
+                    const data = formatDate(agendamento.data);
+                    return `
+                        <tr>
+                            <td>${data}</td>
+                            <td>${agendamento.hora}</td>
+                            <td>${agendamento.medico_nome || 'Não informado'}</td>
+                            <td>${agendamento.nome_cliente || 'Não informado'}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                proximosAgendamentos.innerHTML = '<tr><td colspan="4" class="text-center">Nenhum agendamento próximo</td></tr>';
+            }
+            
+            // Atualizar médicos por especialidade
+            const medicosPorEspecialidade = document.getElementById('medicos-por-especialidade');
+            if (data.medicos_por_especialidade && data.medicos_por_especialidade.length > 0) {
+                medicosPorEspecialidade.innerHTML = data.medicos_por_especialidade.map(item => {
+                    return `
+                        <tr>
+                            <td>${item.nome}</td>
+                            <td>${item.total_medicos}</td>
+                            <td>${item.total_servicos}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                medicosPorEspecialidade.innerHTML = '<tr><td colspan="3" class="text-center">Nenhuma especialidade cadastrada</td></tr>';
+            }
+            
+            // Remover mensagem de erro se existir
+            const errorAlert = document.querySelector('.alert-danger');
+            if (errorAlert) {
+                errorAlert.remove();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados do dashboard:', error);
+            
+            // Exibir mensagem de erro
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'alert alert-danger alert-dismissible fade show';
+            errorMessage.innerHTML = `
+                Erro ao carregar dados do dashboard
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            // Inserir no topo do conteúdo
+            const content = document.querySelector('.content');
+            content.insertBefore(errorMessage, content.firstChild);
+            
+            // Preencher com dados vazios
+            document.getElementById('total-especialidades').textContent = '-';
+            document.getElementById('total-servicos').textContent = '-';
+            document.getElementById('total-medicos').textContent = '-';
+            document.getElementById('total-agendamentos').textContent = '-';
+            
+            document.getElementById('proximos-agendamentos').innerHTML = 
+                '<tr><td colspan="4" class="text-center">Erro ao carregar dados</td></tr>';
+            
+            document.getElementById('medicos-por-especialidade').innerHTML = 
+                '<tr><td colspan="3" class="text-center">Erro ao carregar dados</td></tr>';
+        }
+    }
+    
+    // Função para formatar data
+    function formatDate(dateString) {
+        const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+        return new Date(dateString).toLocaleDateString('pt-BR', options);
+    }
+</script>
+{% endblock %}
