@@ -66,23 +66,6 @@ def reservar_agendamento_proxy():
         }), 400
     
     try:
-        # Converter medico_id para inteiro
-        try:
-            medico_id = int(dados['medico_id'])
-            dados['medico_id'] = medico_id
-        except (ValueError, TypeError):
-            print(f"[ERRO] ID do médico inválido: {dados['medico_id']}")
-            return jsonify({"error": "ID do médico inválido"}), 400
-        
-        # Converter servico_id para inteiro, se presente
-        if 'servico_id' in dados and dados['servico_id']:
-            try:
-                servico_id = int(dados['servico_id'])
-                dados['servico_id'] = servico_id
-            except (ValueError, TypeError):
-                print(f"[ERRO] ID do serviço inválido: {dados['servico_id']}")
-                return jsonify({"error": "ID do serviço inválido"}), 400
-        
         # Criar uma cópia dos dados sem o campo 'id'
         dados_filtrados = {k: v for k, v in dados.items() if k != 'id'}
         
@@ -92,7 +75,7 @@ def reservar_agendamento_proxy():
         url = f"{API_URL}/agendamentos/"  # Garantir que a URL termine com barra
         print(f"[DEBUG] Enviando requisição para criar agendamento: {url}")
         
-        response = requests.post(url, data=dados_filtrados)
+        response = requests.post(url, params=dados_filtrados)  # Usar params em vez de data
         print(f"[DEBUG] Status da resposta: {response.status_code}")
         print(f"[DEBUG] Resposta: {response.text[:500]}")
         
@@ -234,6 +217,52 @@ def horarios_disponiveis_proxy():
         print(f"Erro ao acessar horarios_disponiveis para todos os médicos: {e}")
         return jsonify({"error": str(e)}), 500
 
+# Rota específica para /api/agendamentos/ com tratamento especial para POST
+@app.route('/api/agendamentos/', methods=['POST'])
+def api_agendamentos_post_proxy():
+    try:
+        # Obter todos os parâmetros da query string
+        params = request.args.to_dict()
+        
+        print(f"[DEBUG] Parâmetros recebidos para criar agendamento via /api/: {json.dumps(params, indent=2)}")
+        
+        # Verificar campos obrigatórios
+        campos_obrigatorios = ['medico_id', 'data', 'hora', 'nome_cliente', 'telefone_cliente']
+        campos_faltantes = []
+        
+        for campo in campos_obrigatorios:
+            if campo not in params or not params[campo]:
+                campos_faltantes.append(campo)
+        
+        if campos_faltantes:
+            mensagem_erro = f"Campos obrigatórios ausentes: {', '.join(campos_faltantes)}"
+            print(f"[ERRO] {mensagem_erro}")
+            return jsonify({"error": mensagem_erro}), 400
+        
+        # Garantir que a URL termine com barra
+        url = f"{API_URL}/agendamentos/"
+        print(f"[DEBUG] Enviando requisição para criar agendamento: {url}")
+        print(f"[DEBUG] Parâmetros: {json.dumps(params, indent=2)}")
+        
+        # Enviar requisição para a API usando os parâmetros da query string
+        response = requests.post(url, params=params)
+        print(f"[DEBUG] Status da resposta: {response.status_code}")
+        print(f"[DEBUG] Resposta: {response.text[:500]}")
+        
+        # Verificar se a resposta é um JSON válido
+        try:
+            json_data = response.json()
+            return jsonify(json_data), response.status_code
+        except ValueError:
+            if response.status_code < 400:
+                return jsonify({"message": "Agendamento criado com sucesso"}), response.status_code
+            else:
+                return jsonify({"error": "Erro ao criar agendamento", "details": response.text}), response.status_code
+    
+    except Exception as e:
+        print(f"[DEBUG] Erro ao processar requisição para /api/agendamentos/: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # Rotas de proxy diretas para a API (sem prefixo /api/)
 @app.route('/especialidades', methods=['GET', 'POST'])
 @app.route('/especialidades/<path:subpath>', methods=['GET', 'PUT', 'DELETE'])
@@ -273,9 +302,13 @@ def api_proxy_direct(subpath=None):
         print(f"URL: {url}")
         return jsonify({"error": str(e)}), 500
 
-# Rotas de proxy para a API com prefixo /api/
+# Rotas de proxy para a API com prefixo /api/ (exceto /api/agendamentos/ POST que tem tratamento especial)
 @app.route('/api/<path:endpoint>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def api_proxy(endpoint):
+    # Ignorar /api/agendamentos/ POST que tem tratamento especial
+    if endpoint == 'agendamentos/' and request.method == 'POST':
+        return api_agendamentos_post_proxy()
+    
     url = f"{API_URL}/{endpoint}"
     
     try:
