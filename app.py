@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 import requests
 import os
+import re
 
 app = Flask(__name__)
 
@@ -34,6 +35,38 @@ def admin_agendamentos():
 @app.route('/quadro_horarios')
 def quadro_horarios():
     return render_template('quadro_horarios.html')
+
+# Rota específica para horarios_disponiveis/medico/<id>
+@app.route('/horarios_disponiveis/medico/<int:medico_id>', methods=['GET'])
+def horarios_disponiveis_medico_proxy(medico_id):
+    # Obter parâmetros da requisição
+    params = request.args.to_dict()
+    
+    # Adicionar medico_id aos parâmetros
+    params['medico_id'] = medico_id
+    
+    # Garantir que a URL termine com barra
+    url = f"{API_URL}/agendamentos/horarios_disponiveis/"
+    try:
+        print(f"Consultando horários para médico específico via URL RESTful: {medico_id}")
+        print(f"URL completa: {url}")
+        print(f"Parâmetros: {params}")
+        
+        response = requests.get(url, params=params)
+        
+        print(f"Status da resposta: {response.status_code}")
+        print(f"Conteúdo da resposta: {response.text[:200]}")
+        
+        # Verificar se a resposta é um JSON válido
+        try:
+            json_data = response.json()
+            return jsonify(json_data), response.status_code
+        except ValueError:
+            print(f"Erro ao decodificar resposta: {response.text[:200]}")
+            return jsonify({"error": "Resposta inválida da API"}), 500
+    except Exception as e:
+        print(f"Erro ao acessar horarios_disponiveis/medico/{medico_id}: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # Rota específica para horarios_disponiveis
 @app.route('/horarios_disponiveis', methods=['GET'])
