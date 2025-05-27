@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 import requests
 import os
 import re
+import json
 
 app = Flask(__name__)
 
@@ -42,14 +43,16 @@ def reservar_agendamento_proxy():
     # Obter dados do JSON enviado pelo frontend
     dados = request.get_json(silent=True)
     if not dados:
+        print("ERRO: Nenhum dado JSON recebido na requisição")
         return jsonify({"error": "Dados inválidos"}), 400
     
-    print(f"Dados recebidos para reserva: {dados}")
+    print(f"[DEBUG] Dados recebidos para reserva: {json.dumps(dados, indent=2)}")
     
     # Verificar campos obrigatórios
     campos_obrigatorios = ['medico_id', 'data', 'hora', 'nome_cliente', 'telefone_cliente']
     for campo in campos_obrigatorios:
         if campo not in dados:
+            print(f"ERRO: Campo obrigatório ausente: {campo}")
             return jsonify({"error": f"Campo obrigatório ausente: {campo}"}), 400
     
     # Converter medico_id e servico_id para inteiros
@@ -57,6 +60,7 @@ def reservar_agendamento_proxy():
         medico_id = int(dados['medico_id'])
         dados['medico_id'] = medico_id
     except (ValueError, TypeError):
+        print(f"ERRO: ID do médico inválido: {dados['medico_id']}")
         return jsonify({"error": "ID do médico inválido"}), 400
     
     if 'servico_id' in dados and dados['servico_id']:
@@ -64,30 +68,33 @@ def reservar_agendamento_proxy():
             servico_id = int(dados['servico_id'])
             dados['servico_id'] = servico_id
         except (ValueError, TypeError):
+            print(f"ERRO: ID do serviço inválido: {dados['servico_id']}")
             return jsonify({"error": "ID do serviço inválido"}), 400
     
     # Construir URL para a API
     url = f"{API_URL}/agendamentos"
     
     try:
-        print(f"Enviando requisição para criar agendamento: {url}")
-        print(f"Parâmetros: {dados}")
+        print(f"[DEBUG] Enviando requisição para criar agendamento: {url}")
+        print(f"[DEBUG] Parâmetros: {json.dumps(dados, indent=2)}")
         
         # Enviar requisição POST para a API
         response = requests.post(url, params=dados)
         
-        print(f"Status da resposta: {response.status_code}")
-        print(f"Conteúdo da resposta: {response.text[:200]}")
+        print(f"[DEBUG] Status da resposta: {response.status_code}")
+        print(f"[DEBUG] Headers da resposta: {dict(response.headers)}")
+        print(f"[DEBUG] Conteúdo da resposta: {response.text[:500]}")
         
         # Verificar se a resposta é um JSON válido
         try:
             json_data = response.json()
+            print(f"[DEBUG] Resposta JSON: {json.dumps(json_data, indent=2)}")
             return jsonify(json_data), response.status_code
         except ValueError:
-            print(f"Erro ao decodificar resposta: {response.text[:200]}")
+            print(f"[DEBUG] Erro ao decodificar resposta: {response.text[:500]}")
             return jsonify({"error": "Resposta inválida da API"}), 500
     except Exception as e:
-        print(f"Erro ao criar agendamento: {e}")
+        print(f"[DEBUG] Erro ao criar agendamento: {e}")
         return jsonify({"error": str(e)}), 500
 
 # Rota específica para horarios_disponiveis/medico/<id>
