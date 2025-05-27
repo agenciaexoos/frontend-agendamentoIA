@@ -48,53 +48,77 @@ def reservar_agendamento_proxy():
     
     print(f"[DEBUG] Dados recebidos para reserva: {json.dumps(dados, indent=2)}")
     
-    # Verificar campos obrigatórios
-    campos_obrigatorios = ['medico_id', 'data', 'hora', 'nome_cliente', 'telefone_cliente']
-    for campo in campos_obrigatorios:
-        if campo not in dados:
-            print(f"ERRO: Campo obrigatório ausente: {campo}")
-            return jsonify({"error": f"Campo obrigatório ausente: {campo}"}), 400
-    
-    # Converter medico_id e servico_id para inteiros
+    # Extrair os campos necessários do JSON e formatá-los conforme esperado pela API
     try:
-        medico_id = int(dados['medico_id'])
-        dados['medico_id'] = medico_id
-    except (ValueError, TypeError):
-        print(f"ERRO: ID do médico inválido: {dados['medico_id']}")
-        return jsonify({"error": "ID do médico inválido"}), 400
-    
-    if 'servico_id' in dados and dados['servico_id']:
-        try:
+        # Campos obrigatórios
+        medico_id = int(dados.get('medico_id', 0))
+        data = dados.get('data', '')
+        hora = dados.get('hora', '')
+        nome_cliente = dados.get('nome_cliente', '')
+        telefone_cliente = dados.get('telefone_cliente', '')
+        
+        # Campo opcional
+        servico_id = None
+        if 'servico_id' in dados and dados['servico_id']:
             servico_id = int(dados['servico_id'])
-            dados['servico_id'] = servico_id
-        except (ValueError, TypeError):
-            print(f"ERRO: ID do serviço inválido: {dados['servico_id']}")
-            return jsonify({"error": "ID do serviço inválido"}), 400
-    
-    # Construir URL para a API
-    url = f"{API_URL}/agendamentos"
-    
-    try:
+        
+        # Verificar campos obrigatórios
+        if not medico_id or not data or not hora or not nome_cliente or not telefone_cliente:
+            return jsonify({"error": "Campos obrigatórios ausentes"}), 400
+        
+        # Construir URL para a API
+        url = f"{API_URL}/agendamentos"
+        
+        # Construir parâmetros no formato esperado pela API
+        params = {
+            'medico_id': medico_id,
+            'data': data,
+            'hora': hora,
+            'nome_cliente': nome_cliente,
+            'telefone_cliente': telefone_cliente
+        }
+        
+        if servico_id:
+            params['servico_id'] = servico_id
+        
         print(f"[DEBUG] Enviando requisição para criar agendamento: {url}")
-        print(f"[DEBUG] Parâmetros: {json.dumps(dados, indent=2)}")
+        print(f"[DEBUG] Parâmetros: {json.dumps(params, indent=2)}")
         
-        # Enviar requisição POST para a API
-        response = requests.post(url, params=dados)
+        # Tentar diferentes métodos de envio para a API
+        # Método 1: Form data
+        response1 = requests.post(url, data=params)
+        if response1.status_code < 400:
+            return jsonify(response1.json()), response1.status_code
         
-        print(f"[DEBUG] Status da resposta: {response.status_code}")
-        print(f"[DEBUG] Headers da resposta: {dict(response.headers)}")
-        print(f"[DEBUG] Conteúdo da resposta: {response.text[:500]}")
+        print(f"[DEBUG] Método 1 falhou. Status: {response1.status_code}")
+        print(f"[DEBUG] Resposta: {response1.text[:500]}")
         
-        # Verificar se a resposta é um JSON válido
+        # Método 2: Query string
+        response2 = requests.post(url, params=params)
+        if response2.status_code < 400:
+            return jsonify(response2.json()), response2.status_code
+        
+        print(f"[DEBUG] Método 2 falhou. Status: {response2.status_code}")
+        print(f"[DEBUG] Resposta: {response2.text[:500]}")
+        
+        # Método 3: JSON
+        response3 = requests.post(url, json=params)
+        if response3.status_code < 400:
+            return jsonify(response3.json()), response3.status_code
+        
+        print(f"[DEBUG] Método 3 falhou. Status: {response3.status_code}")
+        print(f"[DEBUG] Resposta: {response3.text[:500]}")
+        
+        # Se todos os métodos falharem, retornar o erro do primeiro método
+        print(f"[DEBUG] Todos os métodos falharam. Retornando resposta do método 1.")
+        
         try:
-            json_data = response.json()
-            print(f"[DEBUG] Resposta JSON: {json.dumps(json_data, indent=2)}")
-            return jsonify(json_data), response.status_code
+            return jsonify(response1.json()), response1.status_code
         except ValueError:
-            print(f"[DEBUG] Erro ao decodificar resposta: {response.text[:500]}")
-            return jsonify({"error": "Resposta inválida da API"}), 500
+            return jsonify({"error": "Erro ao criar agendamento"}), response1.status_code
+        
     except Exception as e:
-        print(f"[DEBUG] Erro ao criar agendamento: {e}")
+        print(f"[DEBUG] Erro ao processar dados para reserva: {e}")
         return jsonify({"error": str(e)}), 500
 
 # Rota específica para horarios_disponiveis/medico/<id>
