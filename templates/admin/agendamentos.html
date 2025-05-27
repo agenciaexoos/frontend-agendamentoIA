@@ -654,10 +654,13 @@
             }
             
             await axios.post('/reservar', {
-                id: agendamentoId,
-                nome_cliente: nome,
-                telefone_cliente: telefone,
-                observacoes
+				id: agendamentoId,
+				medico_id: medicoId,  // Adicionar o ID do médico
+				data: data,           // Adicionar a data
+				hora: hora,           // Adicionar a hora
+				nome_cliente: nome,
+				telefone_cliente: telefone,
+				observacoes
             });
             
             showToast('Agendamento criado com sucesso');
