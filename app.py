@@ -43,10 +43,25 @@ def horarios_disponiveis_proxy():
     
     # Se houver médico_id, apenas repassar a requisição
     if 'medico_id' in params:
-        url = f"{API_URL}/agendamentos/horarios_disponiveis"
+        # Garantir que medico_id seja um inteiro
         try:
-            print(f"Consultando horários para médico específico: {params['medico_id']}")
+            medico_id = int(params['medico_id'])
+            params['medico_id'] = medico_id  # Substituir com o valor inteiro
+        except ValueError:
+            print(f"Erro: medico_id não é um número válido: {params['medico_id']}")
+            return jsonify({"error": "ID do médico inválido"}), 400
+        
+        # Garantir que a URL termine com barra
+        url = f"{API_URL}/agendamentos/horarios_disponiveis/"
+        try:
+            print(f"Consultando horários para médico específico: {medico_id}")
+            print(f"URL completa: {url}")
+            print(f"Parâmetros: {params}")
+            
             response = requests.get(url, params=params)
+            
+            print(f"Status da resposta: {response.status_code}")
+            print(f"Conteúdo da resposta: {response.text[:200]}")
             
             # Verificar se a resposta é um JSON válido
             try:
@@ -74,26 +89,38 @@ def horarios_disponiveis_proxy():
         # Carregar horários para cada médico
         todos_horarios = []
         for medico in medicos:
-            # Garantir que medico_id seja enviado como parâmetro obrigatório
-            medico_params = {'medico_id': medico['id']}
+            # Garantir que medico_id seja um inteiro
+            try:
+                medico_id = int(medico['id'])
+            except (ValueError, TypeError):
+                print(f"Erro: ID do médico não é um número válido: {medico['id']}")
+                continue
+            
+            # Garantir que os parâmetros estejam corretos
+            medico_params = {'medico_id': medico_id}
             
             # Adicionar data se estiver presente na requisição original
             if 'data' in params:
                 medico_params['data'] = params['data']
             
-            horarios_url = f"{API_URL}/agendamentos/horarios_disponiveis"
-            print(f"Consultando horários para médico {medico['id']} em {horarios_url}")
+            # Garantir que a URL termine com barra
+            horarios_url = f"{API_URL}/agendamentos/horarios_disponiveis/"
+            print(f"Consultando horários para médico {medico_id} em {horarios_url}")
+            print(f"Parâmetros: {medico_params}")
             
             horarios_response = requests.get(horarios_url, params=medico_params)
+            
+            print(f"Status da resposta: {horarios_response.status_code}")
+            print(f"Conteúdo da resposta: {horarios_response.text[:200]}")
             
             if horarios_response.status_code == 200:
                 try:
                     horarios_medico = horarios_response.json()
                     todos_horarios.extend(horarios_medico)
                 except ValueError:
-                    print(f"Erro ao decodificar resposta de horários para médico {medico['id']}: {horarios_response.text[:200]}")
+                    print(f"Erro ao decodificar resposta de horários para médico {medico_id}: {horarios_response.text[:200]}")
             else:
-                print(f"Erro ao obter horários para médico {medico['id']}: Status {horarios_response.status_code}, Resposta: {horarios_response.text[:200]}")
+                print(f"Erro ao obter horários para médico {medico_id}: Status {horarios_response.status_code}, Resposta: {horarios_response.text[:200]}")
         
         return jsonify(todos_horarios), 200
     except Exception as e:
