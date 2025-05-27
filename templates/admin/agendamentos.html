@@ -287,8 +287,19 @@
     // Função para carregar agendamentos
     async function loadAgendamentos() {
         try {
-            const response = await axios.get('/horarios_disponiveis');
-            agendamentos = response.data;
+            // Usar o endpoint /agendamentos em vez de /horarios_disponiveis
+            const response = await axios.get('/agendamentos');
+            
+            // Mapear os dados para garantir compatibilidade com o código existente
+            agendamentos = response.data.map(agendamento => {
+                // Adicionar campo 'reservado' baseado no status
+                return {
+                    ...agendamento,
+                    reservado: agendamento.status === 'reservado'
+                };
+            });
+            
+            console.log('Agendamentos carregados:', agendamentos);
             
             // Aplicar filtros iniciais
             filtrarAgendamentos();
@@ -371,21 +382,18 @@
         filtrarAgendamentos();
     }
     
-    // Função para renderizar agendamentos na tabela
+    // Função para renderizar agendamentos
     function renderAgendamentos() {
+        const inicio = (paginaAtual - 1) * itensPorPagina;
+        const fim = inicio + itensPorPagina;
+        const agendamentosPagina = agendamentosFiltrados.slice(inicio, fim);
+        
         const tbody = document.getElementById('agendamentos-lista');
         
-        if (agendamentosFiltrados.length === 0) {
+        if (agendamentosPagina.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhum agendamento encontrado</td></tr>';
             return;
         }
-        
-        // Calcular índices para paginação
-        const inicio = (paginaAtual - 1) * itensPorPagina;
-        const fim = Math.min(inicio + itensPorPagina, agendamentosFiltrados.length);
-        
-        // Obter agendamentos da página atual
-        const agendamentosPagina = agendamentosFiltrados.slice(inicio, fim);
         
         tbody.innerHTML = agendamentosPagina.map(agendamento => {
             // Buscar nome do médico
@@ -397,7 +405,7 @@
             const statusText = agendamento.reservado ? 'Reservado' : 'Disponível';
             
             // Cliente
-            const clienteNome = agendamento.nome_cliente || '-';
+            const clienteNome = agendamento.reservado ? agendamento.nome_cliente : '-';
             
             return `
                 <tr>
@@ -599,8 +607,11 @@
         }
         
         try {
-            const response = await axios.get(`/horarios_disponiveis/medico/${medicoId}`);
-            const horarios = response.data.filter(h => h.data === data && !h.reservado);
+            const response = await axios.get(`/horarios_disponiveis/medico/${medicoId}`, {
+                params: { data }
+            });
+            
+            const horarios = response.data;
             
             if (horarios.length === 0) {
                 selectHora.innerHTML = '<option value="">Nenhum horário disponível</option>';
@@ -610,62 +621,116 @@
             selectHora.innerHTML = '<option value="">Selecione um horário</option>';
             
             horarios.forEach(horario => {
-                const option = document.createElement('option');
-                option.value = horario.hora;
-                option.textContent = horario.hora;
-                option.dataset.id = horario.id;
-                selectHora.appendChild(option);
+                if (horario.status === 'disponivel') {
+                    const option = document.createElement('option');
+                    option.value = horario.hora;
+                    option.textContent = horario.hora;
+                    option.dataset.id = horario.id;
+                    selectHora.appendChild(option);
+                }
+            });
+            
+            // Adicionar evento para atualizar o ID do agendamento quando o horário for selecionado
+            selectHora.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.dataset.id) {
+                    document.getElementById('agendamento-id').value = selectedOption.dataset.id;
+                }
             });
         } catch (error) {
             console.error('Erro ao carregar horários disponíveis:', error);
+            showToast('Erro ao carregar horários disponíveis', 'error');
             selectHora.innerHTML = '<option value="">Erro ao carregar horários</option>';
         }
     }
     
     // Função para salvar agendamento
-async function salvarAgendamento() {
-    const medicoId = document.getElementById('agendamento-medico').value;
-    const data = document.getElementById('agendamento-data').value;
-    const horaSelect = document.getElementById('agendamento-hora');
-    const hora = horaSelect.value;
-    const nome = document.getElementById('agendamento-cliente').value;
-    const telefone = document.getElementById('agendamento-telefone').value;
-    const observacoes = document.getElementById('agendamento-observacoes').value;
-    
-    if (!medicoId || !data || !hora || !nome || !telefone) {
-        showToast('Preencha todos os campos obrigatórios', 'error');
-        return;
-    }
-    
-    try {
-        // Criar objeto com apenas os dados necessários para a API
-        const dadosAgendamento = {
-            medico_id: medicoId,
-            data: data,
-            hora: hora,
-            nome_cliente: nome,
-            telefone_cliente: telefone
-        };
+    async function salvarAgendamento() {
+        const id = document.getElementById('agendamento-id').value;
+        const medicoId = document.getElementById('agendamento-medico').value;
+        const data = document.getElementById('agendamento-data').value;
+        const hora = document.getElementById('agendamento-hora').value;
+        const nome = document.getElementById('agendamento-cliente').value;
+        const telefone = document.getElementById('agendamento-telefone').value;
+        const observacoes = document.getElementById('agendamento-observacoes').value;
         
-        // Adicionar observações apenas se não estiver vazio
-        if (observacoes) {
-            dadosAgendamento.observacoes = observacoes;
+        if (!medicoId || !data || !hora || !nome || !telefone) {
+            showToast('Preencha todos os campos obrigatórios', 'error');
+            return;
         }
         
-        // Enviar como form-data, não como JSON
-        await axios.post('/api/agendamentos/', null, {
-            params: dadosAgendamento  // Enviar como parâmetros de query
-        });
-        
-        showToast('Agendamento criado com sucesso');
-        
-        // Fechar modal e recarregar dados
-        modalCriarAgendamento.hide();
-        loadAgendamentos();
-    } catch (error) {
-        console.error('Erro ao criar agendamento:', error);
-        showToast(`Erro ao criar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
+        try {
+            // Enviar como parâmetros de query, não como JSON
+            await axios.post('/api/agendamentos/', null, {
+                params: {
+                    medico_id: medicoId,
+                    data: data,
+                    hora: hora,
+                    nome_cliente: nome,
+                    telefone_cliente: telefone,
+                    observacoes: observacoes
+                }
+            });
+            
+            showToast('Agendamento criado com sucesso');
+            
+            // Fechar modal e recarregar dados
+            modalCriarAgendamento.hide();
+            loadAgendamentos();
+        } catch (error) {
+            console.error('Erro ao criar agendamento:', error);
+            showToast(`Erro ao criar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
+        }
     }
-}
+    
+    // Função para formatar data
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return dateStr;
+        
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    // Função para mostrar toast
+    function showToast(message, type = 'success') {
+        const toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(container);
+        }
+        
+        const toastId = `toast-${Date.now()}`;
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('toast-container').insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 5000 });
+        toast.show();
+        
+        // Remover o elemento após o toast ser escondido
+        toastElement.addEventListener('hidden.bs.toast', function () {
+            this.remove();
+        });
+    }
+    
+    // Função para confirmar exclusão
+    function confirmDelete(message, callback) {
+        if (confirm(message)) {
+            callback();
+        }
+    }
 </script>
 {% endblock %}
