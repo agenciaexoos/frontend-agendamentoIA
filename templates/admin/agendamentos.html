@@ -623,55 +623,49 @@
     }
     
     // Função para salvar agendamento
-    async function salvarAgendamento() {
-        const id = document.getElementById('agendamento-id').value;
-        const medicoId = document.getElementById('agendamento-medico').value;
-        const data = document.getElementById('agendamento-data').value;
-        const horaSelect = document.getElementById('agendamento-hora');
-        const hora = horaSelect.value;
-        const nome = document.getElementById('agendamento-cliente').value;
-        const telefone = document.getElementById('agendamento-telefone').value;
-        const observacoes = document.getElementById('agendamento-observacoes').value;
-        
-        if (!medicoId || !data || !hora || !nome || !telefone) {
-            showToast('Preencha todos os campos obrigatórios', 'error');
-            return;
-        }
-        
-        try {
-            // Se temos um ID específico, usamos ele
-            let agendamentoId = id;
-            
-            // Se não temos um ID específico, buscamos pelo horário selecionado
-            if (!agendamentoId) {
-                const selectedOption = horaSelect.options[horaSelect.selectedIndex];
-                agendamentoId = selectedOption.dataset.id;
-            }
-            
-            if (!agendamentoId) {
-                showToast('Erro ao identificar o horário selecionado', 'error');
-                return;
-            }
-            
-            await axios.post('/reservar', {
-				id: agendamentoId,
-				medico_id: medicoId,  // Adicionar o ID do médico
-				data: data,           // Adicionar a data
-				hora: hora,           // Adicionar a hora
-				nome_cliente: nome,
-				telefone_cliente: telefone,
-				observacoes
-            });
-            
-            showToast('Agendamento criado com sucesso');
-            
-            // Fechar modal e recarregar dados
-            modalCriarAgendamento.hide();
-            loadAgendamentos();
-        } catch (error) {
-            console.error('Erro ao criar agendamento:', error);
-            showToast(`Erro ao criar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
-        }
+async function salvarAgendamento() {
+    const medicoId = document.getElementById('agendamento-medico').value;
+    const data = document.getElementById('agendamento-data').value;
+    const horaSelect = document.getElementById('agendamento-hora');
+    const hora = horaSelect.value;
+    const nome = document.getElementById('agendamento-cliente').value;
+    const telefone = document.getElementById('agendamento-telefone').value;
+    const observacoes = document.getElementById('agendamento-observacoes').value;
+    
+    if (!medicoId || !data || !hora || !nome || !telefone) {
+        showToast('Preencha todos os campos obrigatórios', 'error');
+        return;
     }
+    
+    try {
+        // Criar objeto com apenas os dados necessários para a API
+        const dadosAgendamento = {
+            medico_id: medicoId,
+            data: data,
+            hora: hora,
+            nome_cliente: nome,
+            telefone_cliente: telefone
+        };
+        
+        // Adicionar observações apenas se não estiver vazio
+        if (observacoes) {
+            dadosAgendamento.observacoes = observacoes;
+        }
+        
+        // Enviar como form-data, não como JSON
+        await axios.post('/api/agendamentos/', null, {
+            params: dadosAgendamento  // Enviar como parâmetros de query
+        });
+        
+        showToast('Agendamento criado com sucesso');
+        
+        // Fechar modal e recarregar dados
+        modalCriarAgendamento.hide();
+        loadAgendamentos();
+    } catch (error) {
+        console.error('Erro ao criar agendamento:', error);
+        showToast(`Erro ao criar agendamento: ${error.response?.data?.detail || error.message}`, 'error');
+    }
+}
 </script>
 {% endblock %}
